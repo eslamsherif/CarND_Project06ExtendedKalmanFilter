@@ -2,6 +2,7 @@
 #define TOOLS_H_
 #include <vector>
 #include "Eigen/Dense"
+#include "Common.h"
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;

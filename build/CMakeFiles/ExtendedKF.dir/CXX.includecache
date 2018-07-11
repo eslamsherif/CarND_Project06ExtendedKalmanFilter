@@ -6,6 +6,8 @@
 
 #IncludeRegexTransform: 
 
+/mnt/e/Backup/SelfDrivingNanoDegree/Term2/06_Extended_Kalman_Filter_Project/MySolution/src/Common.h
+
 /mnt/e/Backup/SelfDrivingNanoDegree/Term2/06_Extended_Kalman_Filter_Project/MySolution/src/Eigen/Cholesky
 Core
 /mnt/e/Backup/SelfDrivingNanoDegree/Term2/06_Extended_Kalman_Filter_Project/MySolution/src/Eigen/Core
@@ -1109,6 +1111,8 @@ string
 /mnt/e/Backup/SelfDrivingNanoDegree/Term2/06_Extended_Kalman_Filter_Project/MySolution/src/kalman_filter.h
 Eigen/Dense
 /mnt/e/Backup/SelfDrivingNanoDegree/Term2/06_Extended_Kalman_Filter_Project/MySolution/src/Eigen/Dense
+Common.h
+/mnt/e/Backup/SelfDrivingNanoDegree/Term2/06_Extended_Kalman_Filter_Project/MySolution/src/Common.h
 
 /mnt/e/Backup/SelfDrivingNanoDegree/Term2/06_Extended_Kalman_Filter_Project/MySolution/src/main.cpp
 uWS/uWS.h
@@ -1139,4 +1143,6 @@ vector
 -
 Eigen/Dense
 /mnt/e/Backup/SelfDrivingNanoDegree/Term2/06_Extended_Kalman_Filter_Project/MySolution/src/Eigen/Dense
+Common.h
+/mnt/e/Backup/SelfDrivingNanoDegree/Term2/06_Extended_Kalman_Filter_Project/MySolution/src/Common.h
 

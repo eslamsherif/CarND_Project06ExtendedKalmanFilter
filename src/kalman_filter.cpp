@@ -3,7 +3,7 @@
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
-#ifdef DEBUG
+#ifdef DEBUG_EKF
 #include <iostream>
 #include <string>
 
@@ -60,7 +60,7 @@ static VectorXd C2P(const VectorXd& state)
         RangeRate = ( ( ( px * vx ) + ( py * vy ) ) / ( RootofSquaredSums ) );
     }
 
-#ifdef DEBUG
+#ifdef DEBUG_EKF
     cout << "px " << px << endl;
     cout << "py " << py << endl;
     cout << "vx " << vx << endl;
@@ -168,7 +168,7 @@ void KalmanFilter::UpdateEKF(const VectorXd &z)
     MatrixXd PHjt = P_ * Hjt;
     MatrixXd K = PHjt * Si;
 
-    #ifdef DEBUG
+    #ifdef DEBUG_EKF
     PrintMatrix("z_pred", z_pred);
     PrintMatrix("y", y);
     PrintMatrix("Hj_", Hj_);

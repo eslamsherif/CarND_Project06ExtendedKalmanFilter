@@ -1,16 +1,7 @@
 #ifndef KALMAN_FILTER_H_
 #define KALMAN_FILTER_H_
 #include "Eigen/Dense"
-
-#ifndef EPSI
-#define EPSI 0.0001
-#endif
-
-#define DEBUG
-// #define DEBUG_PRINTSTATE
-
-// #define DISABLE_RADAR
-// #define DISABLE_LASER
+#include "Common.h"
 
 class KalmanFilter {
 private:

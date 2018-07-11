@@ -8,7 +8,6 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using std::vector;
 
-#if defined(DEBUG) || defined(DEBUG_PRINTSTATE)
 static void PrintKalmanFilterState(KalmanFilter ekf_)
 {
     /* IOFormat inspired from https://eigen.tuxfamily.org/dox/structEigen_1_1IOFormat.html */
@@ -19,7 +18,6 @@ static void PrintKalmanFilterState(KalmanFilter ekf_)
     cout << "P_ = " << ekf_.get_StateCovarianceMatrix().format(fmt) << endl;
     cout << "---------------------------------------------------------" << endl;
 }
-#endif
 
 /*
  * Constructor.
@@ -100,13 +98,13 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
         }
 
         state << Px, Py, Vx, Vy;
-        #ifdef DEBUG
+        #ifdef DEBUG_GENERAL
         cout << "Initialization with Radar data done." << endl;
         #endif
     }
     else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
         state << measurement_pack.raw_measurements_[0], measurement_pack.raw_measurements_[1], 0, 0;
-        #ifdef DEBUG
+        #ifdef DEBUG_GENERAL
         cout << "Initialization with Laser data done." << endl;
         #endif
     }
@@ -133,7 +131,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
     ekf_.Predict();
 
-    #ifdef DEBUG
+    #ifdef DEBUG_PREDICT
     cout << "Prediction done." << endl;
     PrintKalmanFilterState(ekf_);
     #endif
@@ -147,7 +145,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
         // Radar updates
         ekf_.set_MeasurementCovarianceMatrix(R_radar_);
         ekf_.UpdateEKF(measurement_pack.raw_measurements_);
-        #ifdef DEBUG
+        #ifdef DEBUG_GENERAL
         cout << "Radar Measurement update done." << endl;
         #endif
         #endif
@@ -156,13 +154,11 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
         // Laser updates
         ekf_.set_MeasurementCovarianceMatrix(R_laser_);
         ekf_.Update(measurement_pack.raw_measurements_);
-        #ifdef DEBUG
+        #ifdef DEBUG_GENERAL
         cout << "Laser Measurement update done." << endl;
         #endif
         #endif
     }
 
-    #if defined(DEBUG) || defined(DEBUG_PRINTSTATE)
     PrintKalmanFilterState(ekf_);
-    #endif
 }
