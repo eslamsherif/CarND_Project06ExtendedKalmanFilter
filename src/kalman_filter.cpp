@@ -198,12 +198,12 @@ VectorXd KalmanFilter::get_State(void)
 
 void KalmanFilter::update_StateTransitionMatrix(float deltaTime)
 {
-    /* F_ << 1, 0, deltaTime, 0,
-             0, 1, 0, deltaTime,
-             0, 0, 1, 0,
-             0, 0, 0, 1; */
-    F_(0, 2) = deltaTime;
-    F_(1, 3) = deltaTime;
+    F_ << 1, 0, deltaTime, 0,
+          0, 1, 0        , deltaTime,
+          0, 0, 1        , 0,
+          0, 0, 0        , 1;
+    // F_(0, 2) = deltaTime;
+    // F_(1, 3) = deltaTime;
 }
 
 MatrixXd KalmanFilter::get_StateTransitionMatrix(void)

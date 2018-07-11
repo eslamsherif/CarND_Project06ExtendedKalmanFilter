@@ -47,8 +47,8 @@ FusionEKF::FusionEKF() {
               0, 1, 0, 0;
 
   //set the acceleration noise components
-  noise_ax = 9;
-  noise_ay = 9;
+  noise_ax = 9.0f;
+  noise_ay = 9.0f;
 
   MatrixXd P_Init = MatrixXd(4, 4);
 
@@ -126,6 +126,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
     /* Compute the time elapsed between the current and previous measurements */
     float dt = (measurement_pack.timestamp_ - previous_timestamp_) / 1000000.0;   //dt - expressed in seconds
+    previous_timestamp_ = measurement_pack.timestamp_;
 
     ekf_.update_StateTransitionMatrix(dt);
     ekf_.update_ProcessCovarianceMatrix(dt, noise_ax, noise_ay);
