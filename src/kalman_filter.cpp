@@ -21,6 +21,23 @@ static void PrintMatrix(string str, MatrixXd prnt)
 
 /* Private Functions */
 
+static float CorrectAnglePhi(float Phi)
+{
+    while ( Phi > M_PI || Phi < -M_PI )
+    {
+        if ( Phi > M_PI )
+        {
+            Phi -= M_PI;
+        }
+        else if (Phi < -M_PI)
+        {
+            Phi += M_PI;
+        }
+    }
+
+    return Phi;
+}
+
 /* Convert Cartesian to Polar coordinates */
 static VectorXd C2P(const VectorXd& state)
 {
@@ -33,7 +50,15 @@ static VectorXd C2P(const VectorXd& state)
 
     float Range     = RootofSquaredSums;
     float Bearing   = atan2(py , px);
-    float RangeRate = ( ( ( px * vx ) + ( py * vy ) ) / ( RootofSquaredSums ) );
+    float RangeRate;
+    if(RootofSquaredSums < EPSI)
+    {
+        RangeRate = 0.0f;
+    }
+    else
+    {
+        RangeRate = ( ( ( px * vx ) + ( py * vy ) ) / ( RootofSquaredSums ) );
+    }
 
 #ifdef DEBUG
     cout << "px " << px << endl;
@@ -51,8 +76,8 @@ static VectorXd C2P(const VectorXd& state)
     return out;
 }
 
-static MatrixXd CalculateJacobian(const VectorXd& x_state) {
-
+static MatrixXd CalculateJacobian(const VectorXd& x_state)
+{
     MatrixXd Hj(3,4);
 
     /* Recover state parameters  */
@@ -63,10 +88,16 @@ static MatrixXd CalculateJacobian(const VectorXd& x_state) {
 
     float polar_dist = (px*px) + (py*py);
     float sqrt_polar_dist = sqrt(polar_dist);
+    float mul = sqrt_polar_dist*polar_dist;
 
-    Hj <<   ((px)/(sqrt_polar_dist))                         ,((py)/(sqrt_polar_dist))                         ,(0)                     ,(0),
-            ((-1*py)/(polar_dist))                           ,((px)/(polar_dist))                              ,(0)                     ,(0),
-            ((py*(vx*py-vy*px))/(sqrt_polar_dist*polar_dist)),((px*(vy*px-vx*py))/(sqrt_polar_dist*polar_dist)),((px)/(sqrt_polar_dist)),((py)/(sqrt_polar_dist));
+    if(polar_dist < EPSI)
+    {
+        return Hj;
+    }
+
+    Hj <<   ((px)/(sqrt_polar_dist))   ,((py)/(sqrt_polar_dist))   ,(0)                      ,(0),
+            ((-1*py)/(polar_dist))     ,((px)/(polar_dist))        ,(0)                      ,(0),
+            ((py*(vx*py-vy*px))/(mul)) ,((px*(vy*px-vx*py))/(mul)) ,((px)/(sqrt_polar_dist)) ,((py)/(sqrt_polar_dist));
 
     return Hj;
 }
@@ -77,8 +108,8 @@ KalmanFilter::KalmanFilter() {}
 
 KalmanFilter::~KalmanFilter() {}
 
-void KalmanFilter::Init() {
-
+void KalmanFilter::Init()
+{
     x_  = VectorXd(4);
     P_  = MatrixXd(4, 4);
     F_  = MatrixXd(4, 4);
@@ -89,8 +120,8 @@ void KalmanFilter::Init() {
 }
 
 void KalmanFilter::Init(VectorXd &x_in, MatrixXd &P_in, MatrixXd &F_in,
-                        MatrixXd &H_in, MatrixXd &R_in, MatrixXd &Q_in) {
-
+                        MatrixXd &H_in, MatrixXd &R_in, MatrixXd &Q_in)
+{
     Init();
 
     x_ = x_in;
@@ -101,13 +132,15 @@ void KalmanFilter::Init(VectorXd &x_in, MatrixXd &P_in, MatrixXd &F_in,
     Q_ = Q_in;
 }
 
-void KalmanFilter::Predict() {
+void KalmanFilter::Predict()
+{
     x_ = F_ * x_;
     MatrixXd Ft = F_.transpose();
     P_ = F_ * P_ * Ft + Q_;
 }
 
-void KalmanFilter::Update(const VectorXd &z) {
+void KalmanFilter::Update(const VectorXd &z)
+{
     VectorXd z_pred = H_ * x_;
     VectorXd y = z - z_pred;
     MatrixXd Ht = H_.transpose();
@@ -123,15 +156,11 @@ void KalmanFilter::Update(const VectorXd &z) {
     P_ = (I - K * H_) * P_;
 }
 
-void KalmanFilter::UpdateEKF(const VectorXd &z) {
-
-    if( ((x_(0) * x_(0)) + (x_(1) * x_(1))) < 0.001f )
-    {
-        return;
-    }
-
+void KalmanFilter::UpdateEKF(const VectorXd &z)
+{
     VectorXd z_pred = C2P(x_);
     VectorXd y = z - z_pred;
+    y(1) = CorrectAnglePhi(y(1));
     Hj_ = CalculateJacobian(x_);
     MatrixXd Hjt = Hj_.transpose();
     MatrixXd S = Hj_ * P_ * Hjt + R_;
@@ -139,7 +168,7 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
     MatrixXd PHjt = P_ * Hjt;
     MatrixXd K = PHjt * Si;
 
-#ifdef DEBUG
+    #ifdef DEBUG
     PrintMatrix("z_pred", z_pred);
     PrintMatrix("y", y);
     PrintMatrix("Hj_", Hj_);
@@ -148,7 +177,7 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
     PrintMatrix("Si", Si);
     PrintMatrix("PHjt", PHjt);
     PrintMatrix("K", K);
-#endif
+    #endif
 
     //new estimate
     x_ = x_ + (K * y);
@@ -157,15 +186,18 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
     P_ = (I - K * Hj_) * P_;
 }
 
-void KalmanFilter::set_State(VectorXd &x_in) {
+void KalmanFilter::set_State(VectorXd &x_in)
+{
     x_ = x_in;
 }
 
-VectorXd KalmanFilter::get_State(void) {
+VectorXd KalmanFilter::get_State(void)
+{
     return x_;
 }
 
-void KalmanFilter::update_StateTransitionMatrix(float deltaTime) {
+void KalmanFilter::update_StateTransitionMatrix(float deltaTime)
+{
     /* F_ << 1, 0, deltaTime, 0,
              0, 1, 0, deltaTime,
              0, 0, 1, 0,
@@ -174,46 +206,57 @@ void KalmanFilter::update_StateTransitionMatrix(float deltaTime) {
     F_(1, 3) = deltaTime;
 }
 
-MatrixXd KalmanFilter::get_StateTransitionMatrix(void) {
+MatrixXd KalmanFilter::get_StateTransitionMatrix(void)
+{
     return F_;
 }
 
-void KalmanFilter::update_ProcessCovarianceMatrix(float dt, float noise_ax, float noise_ay) {
+void KalmanFilter::update_ProcessCovarianceMatrix(float dt, float noise_ax, float noise_ay)
+{
     /* Avoid duplicating calculations during Q calculation */
     float dt_2 = dt * dt;
     float dt_3 = dt_2 * dt;
+    float dt_3_2 = dt_3/2.0f;
     float dt_4 = dt_3 * dt;
+    float dt_4_4 = dt_4/4.0f;
 
-    Q_ <<  ( dt_4/4*noise_ax ),   0                , ( dt_3/2*noise_ax ),   0,
-             0                , ( dt_4/4*noise_ay ),   0                , ( dt_3/2*noise_ay ),
-           ( dt_3/2*noise_ax ),   0                , ( dt_2*noise_ax )  ,   0,
-             0                , ( dt_3/2*noise_ay ),   0                , ( dt_2*noise_ay );
+    Q_ <<  ( dt_4_4*noise_ax ),   0                , ( dt_3_2*noise_ax ),   0,
+             0                , ( dt_4_4*noise_ay ),   0                , ( dt_3_2*noise_ay ),
+           ( dt_3_2*noise_ax ),   0                , ( dt_2*noise_ax )  ,   0,
+             0                , ( dt_3_2*noise_ay ),   0                , ( dt_2*noise_ay );
 }
 
-MatrixXd KalmanFilter::get_ProcessCovarianceMatrix(void) {
+MatrixXd KalmanFilter::get_ProcessCovarianceMatrix(void)
+{
     return Q_;
 }
 
-void KalmanFilter::set_StateCovarianceMatrix(MatrixXd P_in) {
+void KalmanFilter::set_StateCovarianceMatrix(MatrixXd P_in)
+{
     P_ = P_in;
 }
 
-MatrixXd KalmanFilter::get_StateCovarianceMatrix(void) {
+MatrixXd KalmanFilter::get_StateCovarianceMatrix(void)
+{
     return P_;
 }
 
-void KalmanFilter::set_MeasurementCovarianceMatrix(MatrixXd R_in) {
+void KalmanFilter::set_MeasurementCovarianceMatrix(MatrixXd R_in)
+{
     R_ = R_in;
 }
 
-MatrixXd KalmanFilter::get_MeasurementCovarianceMatrix(void) {
+MatrixXd KalmanFilter::get_MeasurementCovarianceMatrix(void)
+{
     return R_;
 }
 
-void KalmanFilter::set_MeasurementMatrix(MatrixXd H_in) {
+void KalmanFilter::set_MeasurementMatrix(MatrixXd H_in)
+{
     H_ = H_in;
 }
 
-MatrixXd KalmanFilter::get_MeasurementMatrix(void) {
+MatrixXd KalmanFilter::get_MeasurementMatrix(void)
+{
     return H_;
 }

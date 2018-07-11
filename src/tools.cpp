@@ -12,8 +12,7 @@ Tools::~Tools() {}
 VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
                               const vector<VectorXd> &ground_truth) {
    VectorXd rmse(4);
-   /* Initialize to some very large values */
-   rmse << 1000,1000,1000,1000;
+   rmse << 0,0,0,0;
 
    /* check the validity of the inputs, Sanity Checks */
    if ( ( estimations.size() == 0 ) || ( estimations.size() != ground_truth.size() ) )

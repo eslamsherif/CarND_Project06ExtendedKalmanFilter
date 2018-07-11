@@ -59,6 +59,7 @@ FusionEKF::FusionEKF() {
 
   ekf_.Init();
   ekf_.set_StateCovarianceMatrix(P_Init);
+  ekf_.set_MeasurementMatrix(H_laser_);
 
 }
 
@@ -80,18 +81,31 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
     /* First measurement */
 
     if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
-        float Px = measurement_pack.raw_measurements_[0] * cos(measurement_pack.raw_measurements_[1]);
-        float Py = measurement_pack.raw_measurements_[0] * sin(measurement_pack.raw_measurements_[1]);
-        state << Px, Py, 0, 0;
-        ekf_.set_MeasurementCovarianceMatrix(R_radar_);
-        ekf_.set_MeasurementMatrix(H_laser_);
+        float Range     = measurement_pack.raw_measurements_[0];
+        float Bearing   = measurement_pack.raw_measurements_[1];
+        float RangeRate = measurement_pack.raw_measurements_[2];
+
+        float Px = Range * cos(Bearing);
+        float Vx = RangeRate * cos(Bearing);
+        if(Px < EPSI)
+        {
+            Px = EPSI;
+        }
+
+        float Py = Range * sin(Bearing);
+        float Vy = RangeRate * sin(Bearing);
+        if(Py < EPSI)
+        {
+            Py = EPSI;
+        }
+
+        state << Px, Py, Vx, Vy;
         #ifdef DEBUG
         cout << "Initialization with Radar data done." << endl;
         #endif
     }
     else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
         state << measurement_pack.raw_measurements_[0], measurement_pack.raw_measurements_[1], 0, 0;
-        ekf_.set_MeasurementCovarianceMatrix(R_laser_);
         #ifdef DEBUG
         cout << "Initialization with Laser data done." << endl;
         #endif
@@ -127,32 +141,27 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
      *  Update
      ****************************************************************************/
 
-    /**
-     TODO:
-         * Use the sensor type to perform the update step.
-         * Update the state and covariance matrices.
-     */
-
     if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
+        #ifndef DISABLE_RADAR
         // Radar updates
         ekf_.set_MeasurementCovarianceMatrix(R_radar_);
         ekf_.UpdateEKF(measurement_pack.raw_measurements_);
         #ifdef DEBUG
         cout << "Radar Measurement update done." << endl;
-        PrintKalmanFilterState(ekf_);
+        #endif
         #endif
     } else {
+        #ifndef DISABLE_LASER
         // Laser updates
         ekf_.set_MeasurementCovarianceMatrix(R_laser_);
-        ekf_.set_MeasurementMatrix(H_laser_);
         ekf_.Update(measurement_pack.raw_measurements_);
         #ifdef DEBUG
         cout << "Laser Measurement update done." << endl;
-        PrintKalmanFilterState(ekf_);
+        #endif
         #endif
     }
 
-    #ifdef DEBUG_PRINTSTATE
+    #if defined(DEBUG) || defined(DEBUG_PRINTSTATE)
     PrintKalmanFilterState(ekf_);
     #endif
 }
