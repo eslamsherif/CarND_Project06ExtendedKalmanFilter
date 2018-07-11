@@ -8,6 +8,19 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using std::vector;
 
+#if defined(DEBUG) || defined(DEBUG_PRINTSTATE)
+static void PrintKalmanFilterState(KalmanFilter ekf_)
+{
+    /* IOFormat inspired from https://eigen.tuxfamily.org/dox/structEigen_1_1IOFormat.html */
+    const Eigen::IOFormat fmt(4, 0, ",\t", "\n", "\t[", "]");
+    // print the output
+    cout << "x_ = " << ekf_.get_State().format(fmt)                 << endl;
+    cout << endl;
+    cout << "P_ = " << ekf_.get_StateCovarianceMatrix().format(fmt) << endl;
+    cout << "---------------------------------------------------------" << endl;
+}
+#endif
+
 /*
  * Constructor.
  */
@@ -20,7 +33,6 @@ FusionEKF::FusionEKF() {
   R_laser_ = MatrixXd(2, 2);
   R_radar_ = MatrixXd(3, 3);
   H_laser_ = MatrixXd(2, 4);
-  Hj_      = MatrixXd(3, 4);
 
   //measurement covariance matrix - laser
   R_laser_ << 0.0225, 0,
@@ -33,12 +45,6 @@ FusionEKF::FusionEKF() {
 
   H_laser_ << 1, 0, 0, 0,
               0, 1, 0, 0;
-
-  /**
-  TODO:
-    * Finish initializing the FusionEKF.
-    * Set the process and measurement noises
-  */
 
   //set the acceleration noise components
   noise_ax = 9;
@@ -68,25 +74,27 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
    *  Initialization
    ****************************************************************************/
   if (!is_initialized_) {
-    /**
-    TODO:
-      * Initialize the state ekf_.x_ with the first measurement.
-      * Create the covariance matrix.
-      * Remember: you'll need to convert radar from polar to cartesian coordinates.
-    */
+
     VectorXd state(4);
 
     /* First measurement */
 
     if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
-      /**
-      Convert radar from polar to cartesian coordinates and initialize state.
-      */
+        float Px = measurement_pack.raw_measurements_[0] * cos(measurement_pack.raw_measurements_[1]);
+        float Py = measurement_pack.raw_measurements_[0] * sin(measurement_pack.raw_measurements_[1]);
+        state << Px, Py, 0, 0;
+        ekf_.set_MeasurementCovarianceMatrix(R_radar_);
+        ekf_.set_MeasurementMatrix(H_laser_);
+        #ifdef DEBUG
+        cout << "Initialization with Radar data done." << endl;
+        #endif
     }
     else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
-      state << measurement_pack.raw_measurements_[0], measurement_pack.raw_measurements_[1], 0, 0;
-      ekf_.set_MeasurementCovarianceMatrix(R_laser_);
-      ekf_.set_MeasurementMatrix(H_laser_);
+        state << measurement_pack.raw_measurements_[0], measurement_pack.raw_measurements_[1], 0, 0;
+        ekf_.set_MeasurementCovarianceMatrix(R_laser_);
+        #ifdef DEBUG
+        cout << "Initialization with Laser data done." << endl;
+        #endif
     }
 
     previous_timestamp_ = measurement_pack.timestamp_;
@@ -110,6 +118,11 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
     ekf_.Predict();
 
+    #ifdef DEBUG
+    cout << "Prediction done." << endl;
+    PrintKalmanFilterState(ekf_);
+    #endif
+
     /*****************************************************************************
      *  Update
      ****************************************************************************/
@@ -122,15 +135,24 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
     if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
         // Radar updates
-        
+        ekf_.set_MeasurementCovarianceMatrix(R_radar_);
+        ekf_.UpdateEKF(measurement_pack.raw_measurements_);
+        #ifdef DEBUG
+        cout << "Radar Measurement update done." << endl;
+        PrintKalmanFilterState(ekf_);
+        #endif
     } else {
         // Laser updates
         ekf_.set_MeasurementCovarianceMatrix(R_laser_);
         ekf_.set_MeasurementMatrix(H_laser_);
         ekf_.Update(measurement_pack.raw_measurements_);
+        #ifdef DEBUG
+        cout << "Laser Measurement update done." << endl;
+        PrintKalmanFilterState(ekf_);
+        #endif
     }
 
-    // print the output
-    cout << "x_ = " << ekf_.get_State()                 << endl;
-    cout << "P_ = " << ekf_.get_StateCovarianceMatrix() << endl;
+    #ifdef DEBUG_PRINTSTATE
+    PrintKalmanFilterState(ekf_);
+    #endif
 }

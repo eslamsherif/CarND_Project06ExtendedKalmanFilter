@@ -3,65 +3,158 @@
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
+#ifdef DEBUG
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+static void PrintMatrix(string str, MatrixXd prnt)
+{
+    /* IOFormat inspired from https://eigen.tuxfamily.org/dox/structEigen_1_1IOFormat.html */
+    const Eigen::IOFormat fmt(4, 0, ",\t", "\n", "\t[", "]");
+    // print the output
+    cout << str << prnt.format(fmt) << endl;
+    cout << endl;
+}
+#endif
+
+/* Private Functions */
+
+/* Convert Cartesian to Polar coordinates */
+static VectorXd C2P(const VectorXd& state)
+{
+    float px = state(0);
+    float py = state(1);
+    float vx = state(2);
+    float vy = state(3);
+
+    float RootofSquaredSums = sqrt( ( px * px ) + ( py * py ) );
+
+    float Range     = RootofSquaredSums;
+    float Bearing   = atan2(py , px);
+    float RangeRate = ( ( ( px * vx ) + ( py * vy ) ) / ( RootofSquaredSums ) );
+
+#ifdef DEBUG
+    cout << "px " << px << endl;
+    cout << "py " << py << endl;
+    cout << "vx " << vx << endl;
+    cout << "vy " << vy << endl;
+    cout << "RootofSquaredSums " << RootofSquaredSums << endl;
+    cout << "Range " << Range << endl;
+    cout << "Bearing " << Bearing << endl;
+    cout << "RangeRate " << RangeRate << endl;
+#endif
+
+    VectorXd out(3);
+    out << Range, Bearing, RangeRate;
+    return out;
+}
+
+static MatrixXd CalculateJacobian(const VectorXd& x_state) {
+
+    MatrixXd Hj(3,4);
+
+    /* Recover state parameters  */
+    float px = x_state(0);
+    float py = x_state(1);
+    float vx = x_state(2);
+    float vy = x_state(3);
+
+    float polar_dist = (px*px) + (py*py);
+    float sqrt_polar_dist = sqrt(polar_dist);
+
+    Hj <<   ((px)/(sqrt_polar_dist))                         ,((py)/(sqrt_polar_dist))                         ,(0)                     ,(0),
+            ((-1*py)/(polar_dist))                           ,((px)/(polar_dist))                              ,(0)                     ,(0),
+            ((py*(vx*py-vy*px))/(sqrt_polar_dist*polar_dist)),((px*(vy*px-vx*py))/(sqrt_polar_dist*polar_dist)),((px)/(sqrt_polar_dist)),((py)/(sqrt_polar_dist));
+
+    return Hj;
+}
+
+/* Public Functions */
+
 KalmanFilter::KalmanFilter() {}
 
 KalmanFilter::~KalmanFilter() {}
 
 void KalmanFilter::Init() {
-  
-  x_ = VectorXd(4);
-  P_ = MatrixXd(4, 4);
-  F_ = MatrixXd(4, 4);
-  H_ = MatrixXd(2, 4);
-  R_ = MatrixXd(2, 2);
-  Q_ = MatrixXd(4, 4);
+
+    x_  = VectorXd(4);
+    P_  = MatrixXd(4, 4);
+    F_  = MatrixXd(4, 4);
+    H_  = MatrixXd(2, 4);
+    R_  = MatrixXd(2, 2);
+    Q_  = MatrixXd(4, 4);
+    Hj_ = MatrixXd(3, 4);
 }
 
 void KalmanFilter::Init(VectorXd &x_in, MatrixXd &P_in, MatrixXd &F_in,
                         MatrixXd &H_in, MatrixXd &R_in, MatrixXd &Q_in) {
-  
-  x_ = VectorXd(4);
-  P_ = MatrixXd(4, 4);
-  F_ = MatrixXd(4, 4);
-  H_ = MatrixXd(2, 4);
-  R_ = MatrixXd(2, 2);
-  Q_ = MatrixXd(4, 4);
 
-  x_ = x_in;
-  P_ = P_in;
-  F_ = F_in;
-  H_ = H_in;
-  R_ = R_in;
-  Q_ = Q_in;
+    Init();
+
+    x_ = x_in;
+    P_ = P_in;
+    F_ = F_in;
+    H_ = H_in;
+    R_ = R_in;
+    Q_ = Q_in;
 }
 
 void KalmanFilter::Predict() {
-  x_ = F_ * x_;
-  MatrixXd Ft = F_.transpose();
-  P_ = F_ * P_ * Ft + Q_;
+    x_ = F_ * x_;
+    MatrixXd Ft = F_.transpose();
+    P_ = F_ * P_ * Ft + Q_;
 }
 
 void KalmanFilter::Update(const VectorXd &z) {
-   VectorXd z_pred = H_ * x_;
-   VectorXd y = z - z_pred;
-   MatrixXd Ht = H_.transpose();
-   MatrixXd S = H_ * P_ * Ht + R_;
-   MatrixXd Si = S.inverse();
-   MatrixXd PHt = P_ * Ht;
-   MatrixXd K = PHt * Si;
+    VectorXd z_pred = H_ * x_;
+    VectorXd y = z - z_pred;
+    MatrixXd Ht = H_.transpose();
+    MatrixXd S = H_ * P_ * Ht + R_;
+    MatrixXd Si = S.inverse();
+    MatrixXd PHt = P_ * Ht;
+    MatrixXd K = PHt * Si;
 
-   //new estimate
-   x_ = x_ + (K * y);
-   long x_size = x_.size();
-   MatrixXd I = MatrixXd::Identity(x_size, x_size);
-   P_ = (I - K * H_) * P_;
+    //new estimate
+    x_ = x_ + (K * y);
+    long x_size = x_.size();
+    MatrixXd I = MatrixXd::Identity(x_size, x_size);
+    P_ = (I - K * H_) * P_;
 }
 
 void KalmanFilter::UpdateEKF(const VectorXd &z) {
-  /**
-  TODO:
-    * update the state by using Extended Kalman Filter equations
-  */
+
+    if( ((x_(0) * x_(0)) + (x_(1) * x_(1))) < 0.001f )
+    {
+        return;
+    }
+
+    VectorXd z_pred = C2P(x_);
+    VectorXd y = z - z_pred;
+    Hj_ = CalculateJacobian(x_);
+    MatrixXd Hjt = Hj_.transpose();
+    MatrixXd S = Hj_ * P_ * Hjt + R_;
+    MatrixXd Si = S.inverse();
+    MatrixXd PHjt = P_ * Hjt;
+    MatrixXd K = PHjt * Si;
+
+#ifdef DEBUG
+    PrintMatrix("z_pred", z_pred);
+    PrintMatrix("y", y);
+    PrintMatrix("Hj_", Hj_);
+    PrintMatrix("Hjt", Hjt);
+    PrintMatrix("S", S);
+    PrintMatrix("Si", Si);
+    PrintMatrix("PHjt", PHjt);
+    PrintMatrix("K", K);
+#endif
+
+    //new estimate
+    x_ = x_ + (K * y);
+    long x_size = x_.size();
+    MatrixXd I = MatrixXd::Identity(x_size, x_size);
+    P_ = (I - K * Hj_) * P_;
 }
 
 void KalmanFilter::set_State(VectorXd &x_in) {

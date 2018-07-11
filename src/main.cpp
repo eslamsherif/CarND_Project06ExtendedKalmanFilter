@@ -5,6 +5,8 @@
 #include "FusionEKF.h"
 #include "tools.h"
 
+#define DEBUG_RMSE
+
 using namespace std;
 
 // for convenience
@@ -117,6 +119,15 @@ int main()
           estimations.push_back(estimate);
 
           VectorXd RMSE = tools.CalculateRMSE(estimations, ground_truth);
+
+#ifdef DEBUG_RMSE
+          cout << "estimate(0) " << estimate(0) << endl;
+          cout << "estimate(1) " << estimate(1) << endl;
+          cout << "RMSE(0) " << RMSE(0) << endl;
+          cout << "RMSE(1) " << RMSE(1) << endl;
+          cout << "RMSE(2) " << RMSE(2) << endl;
+          cout << "RMSE(3) " << RMSE(3) << endl;
+#endif
 
           json msgJson;
           msgJson["estimate_x"] = estimate(0);
